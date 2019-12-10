@@ -1,0 +1,1194 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>Test Report</title>
+    <link href="assets/style.css" rel="stylesheet" type="text/css"/></head>
+  <body onLoad="init()">
+    <script>/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+function toArray(iter) {
+    if (iter === null) {
+        return null;
+    }
+    return Array.prototype.slice.call(iter);
+}
+
+function find(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return elem.querySelector(selector);
+}
+
+function find_all(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return toArray(elem.querySelectorAll(selector));
+}
+
+function sort_column(elem) {
+    toggle_sort_states(elem);
+    var colIndex = toArray(elem.parentNode.childNodes).indexOf(elem);
+    var key;
+    if (elem.classList.contains('numeric')) {
+        key = key_num;
+    } else if (elem.classList.contains('result')) {
+        key = key_result;
+    } else {
+        key = key_alpha;
+    }
+    sort_table(elem, key(colIndex));
+}
+
+function show_all_extras() {
+    find_all('.col-result').forEach(show_extras);
+}
+
+function hide_all_extras() {
+    find_all('.col-result').forEach(hide_extras);
+}
+
+function show_extras(colresult_elem) {
+    var extras = colresult_elem.parentNode.nextElementSibling;
+    var expandcollapse = colresult_elem.firstElementChild;
+    extras.classList.remove("collapsed");
+    expandcollapse.classList.remove("expander");
+    expandcollapse.classList.add("collapser");
+}
+
+function hide_extras(colresult_elem) {
+    var extras = colresult_elem.parentNode.nextElementSibling;
+    var expandcollapse = colresult_elem.firstElementChild;
+    extras.classList.add("collapsed");
+    expandcollapse.classList.remove("collapser");
+    expandcollapse.classList.add("expander");
+}
+
+function show_filters() {
+    var filter_items = document.getElementsByClassName('filter');
+    for (var i = 0; i < filter_items.length; i++)
+        filter_items[i].hidden = false;
+}
+
+function add_collapse() {
+    // Add links for show/hide all
+    var resulttable = find('table#results-table');
+    var showhideall = document.createElement("p");
+    showhideall.innerHTML = '<a href="javascript:show_all_extras()">Show all details</a> / ' +
+                            '<a href="javascript:hide_all_extras()">Hide all details</a>';
+    resulttable.parentElement.insertBefore(showhideall, resulttable);
+
+    // Add show/hide link to each result
+    find_all('.col-result').forEach(function(elem) {
+        var collapsed = get_query_parameter('collapsed') || 'Passed';
+        var extras = elem.parentNode.nextElementSibling;
+        var expandcollapse = document.createElement("span");
+        if (collapsed.includes(elem.innerHTML)) {
+            extras.classList.add("collapsed");
+            expandcollapse.classList.add("expander");
+        } else {
+            expandcollapse.classList.add("collapser");
+        }
+        elem.appendChild(expandcollapse);
+
+        elem.addEventListener("click", function(event) {
+            if (event.currentTarget.parentNode.nextElementSibling.classList.contains("collapsed")) {
+                show_extras(event.currentTarget);
+            } else {
+                hide_extras(event.currentTarget);
+            }
+        });
+    })
+}
+
+function get_query_parameter(name) {
+    var match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+    return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+}
+
+function init () {
+    reset_sort_headers();
+
+    add_collapse();
+
+    show_filters();
+
+    sort_column(find('.initial-sort'));
+
+    find_all('.sortable').forEach(function(elem) {
+        elem.addEventListener("click",
+                              function(event) {
+                                  sort_column(elem);
+                              }, false)
+    });
+
+};
+
+function sort_table(clicked, key_func) {
+    var rows = find_all('.results-table-row');
+    var reversed = !clicked.classList.contains('asc');
+    var sorted_rows = sort(rows, key_func, reversed);
+    /* Whole table is removed here because browsers acts much slower
+     * when appending existing elements.
+     */
+    var thead = document.getElementById("results-table-head");
+    document.getElementById('results-table').remove();
+    var parent = document.createElement("table");
+    parent.id = "results-table";
+    parent.appendChild(thead);
+    sorted_rows.forEach(function(elem) {
+        parent.appendChild(elem);
+    });
+    document.getElementsByTagName("BODY")[0].appendChild(parent);
+}
+
+function sort(items, key_func, reversed) {
+    var sort_array = items.map(function(item, i) {
+        return [key_func(item), i];
+    });
+
+    sort_array.sort(function(a, b) {
+        var key_a = a[0];
+        var key_b = b[0];
+
+        if (key_a == key_b) return 0;
+
+        if (reversed) {
+            return (key_a < key_b ? 1 : -1);
+        } else {
+            return (key_a > key_b ? 1 : -1);
+        }
+    });
+
+    return sort_array.map(function(item) {
+        var index = item[1];
+        return items[index];
+    });
+}
+
+function key_alpha(col_index) {
+    return function(elem) {
+        return elem.childNodes[1].childNodes[col_index].firstChild.data.toLowerCase();
+    };
+}
+
+function key_num(col_index) {
+    return function(elem) {
+        return parseFloat(elem.childNodes[1].childNodes[col_index].firstChild.data);
+    };
+}
+
+function key_result(col_index) {
+    return function(elem) {
+        var strings = ['Error', 'Failed', 'Rerun', 'XFailed', 'XPassed',
+                       'Skipped', 'Passed'];
+        return strings.indexOf(elem.childNodes[1].childNodes[col_index].firstChild.data);
+    };
+}
+
+function reset_sort_headers() {
+    find_all('.sort-icon').forEach(function(elem) {
+        elem.parentNode.removeChild(elem);
+    });
+    find_all('.sortable').forEach(function(elem) {
+        var icon = document.createElement("div");
+        icon.className = "sort-icon";
+        icon.textContent = "vvv";
+        elem.insertBefore(icon, elem.firstChild);
+        elem.classList.remove("desc", "active");
+        elem.classList.add("asc", "inactive");
+    });
+}
+
+function toggle_sort_states(elem) {
+    //if active, toggle between asc and desc
+    if (elem.classList.contains('active')) {
+        elem.classList.toggle('asc');
+        elem.classList.toggle('desc');
+    }
+
+    //if inactive, reset all other functions and add ascending active
+    if (elem.classList.contains('inactive')) {
+        reset_sort_headers();
+        elem.classList.remove('inactive');
+        elem.classList.add('active');
+    }
+}
+
+function is_all_rows_hidden(value) {
+  return value.hidden == false;
+}
+
+function filter_table(elem) {
+    var outcome_att = "data-test-result";
+    var outcome = elem.getAttribute(outcome_att);
+    class_outcome = outcome + " results-table-row";
+    var outcome_rows = document.getElementsByClassName(class_outcome);
+
+    for(var i = 0; i < outcome_rows.length; i++){
+        outcome_rows[i].hidden = !elem.checked;
+    }
+
+    var rows = find_all('.results-table-row').filter(is_all_rows_hidden);
+    var all_rows_hidden = rows.length == 0 ? true : false;
+    var not_found_message = document.getElementById("not-found-message");
+    not_found_message.hidden = !all_rows_hidden;
+}
+</script>
+    <h1>2019-12-09-17-16-58.html</h1>
+    <p>Report generated on 09-Dec-2019 at 17:17:20 by <a href="https://pypi.python.org/pypi/pytest-html">pytest-html</a> v2.0.1</p>
+    <h2>Environment</h2>
+    <table id="environment">
+      <tr>
+        <td>JAVA_HOME</td>
+        <td>C:\Program Files\Java\jdk1.7.0_79</td></tr>
+      <tr>
+        <td>Packages</td>
+        <td>{&apos;pytest&apos;: &apos;5.3.1&apos;, &apos;py&apos;: &apos;1.8.0&apos;, &apos;pluggy&apos;: &apos;0.13.1&apos;}</td></tr>
+      <tr>
+        <td>Platform</td>
+        <td>Windows-7-6.1.7601-SP1</td></tr>
+      <tr>
+        <td>Plugins</td>
+        <td>{&apos;cov&apos;: &apos;2.7.1&apos;, &apos;html&apos;: &apos;2.0.1&apos;, &apos;metadata&apos;: &apos;1.8.0&apos;}</td></tr>
+      <tr>
+        <td>Python</td>
+        <td>3.6.4</td></tr></table>
+    <h2>Summary</h2>
+    <p>20 tests ran in 20.26 seconds. </p>
+    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="passed">20 passed</span>, <input checked="true" class="filter" data-test-result="skipped" disabled="true" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="skipped">0 skipped</span>, <input checked="true" class="filter" data-test-result="failed" disabled="true" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="failed">0 failed</span>, <input checked="true" class="filter" data-test-result="error" disabled="true" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="error">0 errors</span>, <input checked="true" class="filter" data-test-result="xfailed" disabled="true" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="xfailed">0 expected failures</span>, <input checked="true" class="filter" data-test-result="xpassed" disabled="true" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="xpassed">0 unexpected passes</span>
+    <h2>Results</h2>
+    <table id="results-table">
+      <thead id="results-table-head">
+        <tr>
+          <th class="sortable result initial-sort" col="result">Result</th>
+          <th class="sortable" col="name">Test</th>
+          <th class="sortable numeric" col="duration">Duration</th>
+          <th>Links</th></tr>
+        <tr hidden="true" id="not-found-message">
+          <th colspan="4">No results found. Try to check the filters</th></tr></thead>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_case/test_get.py::TestGet::test_get[get_case_01-get-/get-4-headers0-params0]</td>
+          <td class="col-duration">2.22</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[32m[INFO] 2019-12-09 17:17:02.890090 - 【用例：get_case_01， 接口：&#x27;https://httpbin.org/get&#x27;】-- 测试结果如下：
+{
+    &quot;args&quot;:{
+        &quot;age&quot;:&quot;2&quot;,
+        &quot;name&quot;:&quot;hang&quot;
+    },
+    &quot;headers&quot;:{
+        &quot;A&quot;:&quot;qqqq&quot;,
+        &quot;Accept&quot;:&quot;*/*&quot;,
+        &quot;Accept-Encoding&quot;:&quot;gzip, deflate&quot;,
+        &quot;B&quot;:&quot;qwqw&quot;,
+        &quot;Host&quot;:&quot;httpbin.org&quot;,
+        &quot;User-Agent&quot;:&quot;python-requests/2.18.4&quot;
+    },
+    &quot;origin&quot;:&quot;140.207.165.210, 140.207.165.210&quot;,
+    &quot;url&quot;:&quot;https://httpbin.org/get?name=hang&amp;age=2&quot;
+}[0m
+[32m[INFO] 2019-12-09 17:17:02.890090 - 用例：get_case_01, 测试完毕。[0m
+<br/> -------------------------------Captured log call-------------------------------- <br/>INFO     requests_base:log_base.py:60 [32m[INFO] 2019-12-09 17:17:02.890090 - 【用例：get_case_01， 接口：&#x27;https://httpbin.org/get&#x27;】-- 测试结果如下：
+{
+    &quot;args&quot;:{
+        &quot;age&quot;:&quot;2&quot;,
+        &quot;name&quot;:&quot;hang&quot;
+    },
+    &quot;headers&quot;:{
+        &quot;A&quot;:&quot;qqqq&quot;,
+        &quot;Accept&quot;:&quot;*/*&quot;,
+        &quot;Accept-Encoding&quot;:&quot;gzip, deflate&quot;,
+        &quot;B&quot;:&quot;qwqw&quot;,
+        &quot;Host&quot;:&quot;httpbin.org&quot;,
+        &quot;User-Agent&quot;:&quot;python-requests/2.18.4&quot;
+    },
+    &quot;origin&quot;:&quot;140.207.165.210, 140.207.165.210&quot;,
+    &quot;url&quot;:&quot;https://httpbin.org/get?name=hang&amp;age=2&quot;
+}[0m
+INFO     test_get:log_base.py:60 [32m[INFO] 2019-12-09 17:17:02.890090 - 用例：get_case_01, 测试完毕。[0m<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_case/test_get.py::TestGet::test_get[get_case_02-get-/get-4-None-params1]</td>
+          <td class="col-duration">0.97</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[32m[INFO] 2019-12-09 17:17:03.859146 - 【用例：get_case_02， 接口：&#x27;https://httpbin.org/get&#x27;】-- 测试结果如下：
+{
+    &quot;args&quot;:{
+        &quot;age&quot;:&quot;2&quot;,
+        &quot;name&quot;:&quot;hang11111111111111111111111&quot;
+    },
+    &quot;headers&quot;:{
+        &quot;Accept&quot;:&quot;*/*&quot;,
+        &quot;Accept-Encoding&quot;:&quot;gzip, deflate&quot;,
+        &quot;Host&quot;:&quot;httpbin.org&quot;,
+        &quot;User-Agent&quot;:&quot;python-requests/2.18.4&quot;
+    },
+    &quot;origin&quot;:&quot;140.207.165.210, 140.207.165.210&quot;,
+    &quot;url&quot;:&quot;https://httpbin.org/get?name=hang11111111111111111111111&amp;age=2&quot;
+}[0m
+[32m[INFO] 2019-12-09 17:17:03.859146 - 用例：get_case_02, 测试完毕。[0m
+<br/> -------------------------------Captured log call-------------------------------- <br/>INFO     requests_base:log_base.py:60 [32m[INFO] 2019-12-09 17:17:03.859146 - 【用例：get_case_02， 接口：&#x27;https://httpbin.org/get&#x27;】-- 测试结果如下：
+{
+    &quot;args&quot;:{
+        &quot;age&quot;:&quot;2&quot;,
+        &quot;name&quot;:&quot;hang11111111111111111111111&quot;
+    },
+    &quot;headers&quot;:{
+        &quot;Accept&quot;:&quot;*/*&quot;,
+        &quot;Accept-Encoding&quot;:&quot;gzip, deflate&quot;,
+        &quot;Host&quot;:&quot;httpbin.org&quot;,
+        &quot;User-Agent&quot;:&quot;python-requests/2.18.4&quot;
+    },
+    &quot;origin&quot;:&quot;140.207.165.210, 140.207.165.210&quot;,
+    &quot;url&quot;:&quot;https://httpbin.org/get?name=hang11111111111111111111111&amp;age=2&quot;
+}[0m
+INFO     test_get:log_base.py:60 [32m[INFO] 2019-12-09 17:17:03.859146 - 用例：get_case_02, 测试完毕。[0m<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_case/test_get.py::TestGet::test_get[get_case_02-get-/get-4-None-params2]</td>
+          <td class="col-duration">0.92</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[32m[INFO] 2019-12-09 17:17:04.779198 - 【用例：get_case_02， 接口：&#x27;https://httpbin.org/get&#x27;】-- 测试结果如下：
+{
+    &quot;args&quot;:{
+        &quot;age&quot;:&quot;2&quot;,
+        &quot;name&quot;:&quot;123&quot;
+    },
+    &quot;headers&quot;:{
+        &quot;Accept&quot;:&quot;*/*&quot;,
+        &quot;Accept-Encoding&quot;:&quot;gzip, deflate&quot;,
+        &quot;Host&quot;:&quot;httpbin.org&quot;,
+        &quot;User-Agent&quot;:&quot;python-requests/2.18.4&quot;
+    },
+    &quot;origin&quot;:&quot;140.207.165.210, 140.207.165.210&quot;,
+    &quot;url&quot;:&quot;https://httpbin.org/get?name=123&amp;age=2&quot;
+}[0m
+[32m[INFO] 2019-12-09 17:17:04.780198 - 用例：get_case_02, 测试完毕。[0m
+<br/> -------------------------------Captured log call-------------------------------- <br/>INFO     requests_base:log_base.py:60 [32m[INFO] 2019-12-09 17:17:04.779198 - 【用例：get_case_02， 接口：&#x27;https://httpbin.org/get&#x27;】-- 测试结果如下：
+{
+    &quot;args&quot;:{
+        &quot;age&quot;:&quot;2&quot;,
+        &quot;name&quot;:&quot;123&quot;
+    },
+    &quot;headers&quot;:{
+        &quot;Accept&quot;:&quot;*/*&quot;,
+        &quot;Accept-Encoding&quot;:&quot;gzip, deflate&quot;,
+        &quot;Host&quot;:&quot;httpbin.org&quot;,
+        &quot;User-Agent&quot;:&quot;python-requests/2.18.4&quot;
+    },
+    &quot;origin&quot;:&quot;140.207.165.210, 140.207.165.210&quot;,
+    &quot;url&quot;:&quot;https://httpbin.org/get?name=123&amp;age=2&quot;
+}[0m
+INFO     test_get:log_base.py:60 [32m[INFO] 2019-12-09 17:17:04.780198 - 用例：get_case_02, 测试完毕。[0m<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_case/test_get.py::TestGet::test_get[get_case_02-get-/get-4-None-params3]</td>
+          <td class="col-duration">0.97</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[32m[INFO] 2019-12-09 17:17:05.751254 - 【用例：get_case_02， 接口：&#x27;https://httpbin.org/get&#x27;】-- 测试结果如下：
+{
+    &quot;args&quot;:{
+        &quot;age&quot;:&quot;2&quot;,
+        &quot;name&quot;:&quot;234&quot;
+    },
+    &quot;headers&quot;:{
+        &quot;Accept&quot;:&quot;*/*&quot;,
+        &quot;Accept-Encoding&quot;:&quot;gzip, deflate&quot;,
+        &quot;Host&quot;:&quot;httpbin.org&quot;,
+        &quot;User-Agent&quot;:&quot;python-requests/2.18.4&quot;
+    },
+    &quot;origin&quot;:&quot;140.207.165.210, 140.207.165.210&quot;,
+    &quot;url&quot;:&quot;https://httpbin.org/get?name=234&amp;age=2&quot;
+}[0m
+[32m[INFO] 2019-12-09 17:17:05.752254 - 用例：get_case_02, 测试完毕。[0m
+<br/> -------------------------------Captured log call-------------------------------- <br/>INFO     requests_base:log_base.py:60 [32m[INFO] 2019-12-09 17:17:05.751254 - 【用例：get_case_02， 接口：&#x27;https://httpbin.org/get&#x27;】-- 测试结果如下：
+{
+    &quot;args&quot;:{
+        &quot;age&quot;:&quot;2&quot;,
+        &quot;name&quot;:&quot;234&quot;
+    },
+    &quot;headers&quot;:{
+        &quot;Accept&quot;:&quot;*/*&quot;,
+        &quot;Accept-Encoding&quot;:&quot;gzip, deflate&quot;,
+        &quot;Host&quot;:&quot;httpbin.org&quot;,
+        &quot;User-Agent&quot;:&quot;python-requests/2.18.4&quot;
+    },
+    &quot;origin&quot;:&quot;140.207.165.210, 140.207.165.210&quot;,
+    &quot;url&quot;:&quot;https://httpbin.org/get?name=234&amp;age=2&quot;
+}[0m
+INFO     test_get:log_base.py:60 [32m[INFO] 2019-12-09 17:17:05.752254 - 用例：get_case_02, 测试完毕。[0m<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_case/test_get.py::TestGet::test_get[get_case_02-get-/get-4-None-params4]</td>
+          <td class="col-duration">0.97</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[32m[INFO] 2019-12-09 17:17:06.720309 - 【用例：get_case_02， 接口：&#x27;https://httpbin.org/get&#x27;】-- 测试结果如下：
+{
+    &quot;args&quot;:{
+        &quot;age&quot;:&quot;2&quot;,
+        &quot;name&quot;:&quot;345&quot;
+    },
+    &quot;headers&quot;:{
+        &quot;Accept&quot;:&quot;*/*&quot;,
+        &quot;Accept-Encoding&quot;:&quot;gzip, deflate&quot;,
+        &quot;Host&quot;:&quot;httpbin.org&quot;,
+        &quot;User-Agent&quot;:&quot;python-requests/2.18.4&quot;
+    },
+    &quot;origin&quot;:&quot;140.207.165.210, 140.207.165.210&quot;,
+    &quot;url&quot;:&quot;https://httpbin.org/get?name=345&amp;age=2&quot;
+}[0m
+[32m[INFO] 2019-12-09 17:17:06.720309 - 用例：get_case_02, 测试完毕。[0m
+<br/> -------------------------------Captured log call-------------------------------- <br/>INFO     requests_base:log_base.py:60 [32m[INFO] 2019-12-09 17:17:06.720309 - 【用例：get_case_02， 接口：&#x27;https://httpbin.org/get&#x27;】-- 测试结果如下：
+{
+    &quot;args&quot;:{
+        &quot;age&quot;:&quot;2&quot;,
+        &quot;name&quot;:&quot;345&quot;
+    },
+    &quot;headers&quot;:{
+        &quot;Accept&quot;:&quot;*/*&quot;,
+        &quot;Accept-Encoding&quot;:&quot;gzip, deflate&quot;,
+        &quot;Host&quot;:&quot;httpbin.org&quot;,
+        &quot;User-Agent&quot;:&quot;python-requests/2.18.4&quot;
+    },
+    &quot;origin&quot;:&quot;140.207.165.210, 140.207.165.210&quot;,
+    &quot;url&quot;:&quot;https://httpbin.org/get?name=345&amp;age=2&quot;
+}[0m
+INFO     test_get:log_base.py:60 [32m[INFO] 2019-12-09 17:17:06.720309 - 用例：get_case_02, 测试完毕。[0m<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_case/test_get.py::TestGet::test_get[get_case_02-get-/get-4-None-params5]</td>
+          <td class="col-duration">0.90</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[32m[INFO] 2019-12-09 17:17:07.618361 - 【用例：get_case_02， 接口：&#x27;https://httpbin.org/get&#x27;】-- 测试结果如下：
+{
+    &quot;args&quot;:{
+        &quot;age&quot;:&quot;2&quot;,
+        &quot;name&quot;:&quot;456&quot;
+    },
+    &quot;headers&quot;:{
+        &quot;Accept&quot;:&quot;*/*&quot;,
+        &quot;Accept-Encoding&quot;:&quot;gzip, deflate&quot;,
+        &quot;Host&quot;:&quot;httpbin.org&quot;,
+        &quot;User-Agent&quot;:&quot;python-requests/2.18.4&quot;
+    },
+    &quot;origin&quot;:&quot;140.207.165.210, 140.207.165.210&quot;,
+    &quot;url&quot;:&quot;https://httpbin.org/get?name=456&amp;age=2&quot;
+}[0m
+[32m[INFO] 2019-12-09 17:17:07.619361 - 用例：get_case_02, 测试完毕。[0m
+<br/> -------------------------------Captured log call-------------------------------- <br/>INFO     requests_base:log_base.py:60 [32m[INFO] 2019-12-09 17:17:07.618361 - 【用例：get_case_02， 接口：&#x27;https://httpbin.org/get&#x27;】-- 测试结果如下：
+{
+    &quot;args&quot;:{
+        &quot;age&quot;:&quot;2&quot;,
+        &quot;name&quot;:&quot;456&quot;
+    },
+    &quot;headers&quot;:{
+        &quot;Accept&quot;:&quot;*/*&quot;,
+        &quot;Accept-Encoding&quot;:&quot;gzip, deflate&quot;,
+        &quot;Host&quot;:&quot;httpbin.org&quot;,
+        &quot;User-Agent&quot;:&quot;python-requests/2.18.4&quot;
+    },
+    &quot;origin&quot;:&quot;140.207.165.210, 140.207.165.210&quot;,
+    &quot;url&quot;:&quot;https://httpbin.org/get?name=456&amp;age=2&quot;
+}[0m
+INFO     test_get:log_base.py:60 [32m[INFO] 2019-12-09 17:17:07.619361 - 用例：get_case_02, 测试完毕。[0m<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_case/test_get.py::TestGet::test_get[get_case_02-get-/get-4-None-params6]</td>
+          <td class="col-duration">0.96</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[32m[INFO] 2019-12-09 17:17:08.579416 - 【用例：get_case_02， 接口：&#x27;https://httpbin.org/get&#x27;】-- 测试结果如下：
+{
+    &quot;args&quot;:{
+        &quot;age&quot;:&quot;2&quot;,
+        &quot;name&quot;:&quot;678&quot;
+    },
+    &quot;headers&quot;:{
+        &quot;Accept&quot;:&quot;*/*&quot;,
+        &quot;Accept-Encoding&quot;:&quot;gzip, deflate&quot;,
+        &quot;Host&quot;:&quot;httpbin.org&quot;,
+        &quot;User-Agent&quot;:&quot;python-requests/2.18.4&quot;
+    },
+    &quot;origin&quot;:&quot;140.207.165.210, 140.207.165.210&quot;,
+    &quot;url&quot;:&quot;https://httpbin.org/get?name=678&amp;age=2&quot;
+}[0m
+[32m[INFO] 2019-12-09 17:17:08.580416 - 用例：get_case_02, 测试完毕。[0m
+<br/> -------------------------------Captured log call-------------------------------- <br/>INFO     requests_base:log_base.py:60 [32m[INFO] 2019-12-09 17:17:08.579416 - 【用例：get_case_02， 接口：&#x27;https://httpbin.org/get&#x27;】-- 测试结果如下：
+{
+    &quot;args&quot;:{
+        &quot;age&quot;:&quot;2&quot;,
+        &quot;name&quot;:&quot;678&quot;
+    },
+    &quot;headers&quot;:{
+        &quot;Accept&quot;:&quot;*/*&quot;,
+        &quot;Accept-Encoding&quot;:&quot;gzip, deflate&quot;,
+        &quot;Host&quot;:&quot;httpbin.org&quot;,
+        &quot;User-Agent&quot;:&quot;python-requests/2.18.4&quot;
+    },
+    &quot;origin&quot;:&quot;140.207.165.210, 140.207.165.210&quot;,
+    &quot;url&quot;:&quot;https://httpbin.org/get?name=678&amp;age=2&quot;
+}[0m
+INFO     test_get:log_base.py:60 [32m[INFO] 2019-12-09 17:17:08.580416 - 用例：get_case_02, 测试完毕。[0m<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_case/test_get.py::TestGet::test_get[get_case_02-get-/get-4-None-params7]</td>
+          <td class="col-duration">0.89</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[32m[INFO] 2019-12-09 17:17:09.475467 - 【用例：get_case_02， 接口：&#x27;https://httpbin.org/get&#x27;】-- 测试结果如下：
+{
+    &quot;args&quot;:{
+        &quot;age&quot;:&quot;2&quot;,
+        &quot;name&quot;:&quot;5453&quot;
+    },
+    &quot;headers&quot;:{
+        &quot;Accept&quot;:&quot;*/*&quot;,
+        &quot;Accept-Encoding&quot;:&quot;gzip, deflate&quot;,
+        &quot;Host&quot;:&quot;httpbin.org&quot;,
+        &quot;User-Agent&quot;:&quot;python-requests/2.18.4&quot;
+    },
+    &quot;origin&quot;:&quot;140.207.165.210, 140.207.165.210&quot;,
+    &quot;url&quot;:&quot;https://httpbin.org/get?name=5453&amp;age=2&quot;
+}[0m
+[32m[INFO] 2019-12-09 17:17:09.475467 - 用例：get_case_02, 测试完毕。[0m
+<br/> -------------------------------Captured log call-------------------------------- <br/>INFO     requests_base:log_base.py:60 [32m[INFO] 2019-12-09 17:17:09.475467 - 【用例：get_case_02， 接口：&#x27;https://httpbin.org/get&#x27;】-- 测试结果如下：
+{
+    &quot;args&quot;:{
+        &quot;age&quot;:&quot;2&quot;,
+        &quot;name&quot;:&quot;5453&quot;
+    },
+    &quot;headers&quot;:{
+        &quot;Accept&quot;:&quot;*/*&quot;,
+        &quot;Accept-Encoding&quot;:&quot;gzip, deflate&quot;,
+        &quot;Host&quot;:&quot;httpbin.org&quot;,
+        &quot;User-Agent&quot;:&quot;python-requests/2.18.4&quot;
+    },
+    &quot;origin&quot;:&quot;140.207.165.210, 140.207.165.210&quot;,
+    &quot;url&quot;:&quot;https://httpbin.org/get?name=5453&amp;age=2&quot;
+}[0m
+INFO     test_get:log_base.py:60 [32m[INFO] 2019-12-09 17:17:09.475467 - 用例：get_case_02, 测试完毕。[0m<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_case/test_get.py::TestGet::test_get[get_case_02-get-/get-4-None-params8]</td>
+          <td class="col-duration">0.96</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[32m[INFO] 2019-12-09 17:17:10.440522 - 【用例：get_case_02， 接口：&#x27;https://httpbin.org/get&#x27;】-- 测试结果如下：
+{
+    &quot;args&quot;:{
+        &quot;age&quot;:&quot;2&quot;,
+        &quot;name&quot;:&quot;3243211111&quot;
+    },
+    &quot;headers&quot;:{
+        &quot;Accept&quot;:&quot;*/*&quot;,
+        &quot;Accept-Encoding&quot;:&quot;gzip, deflate&quot;,
+        &quot;Host&quot;:&quot;httpbin.org&quot;,
+        &quot;User-Agent&quot;:&quot;python-requests/2.18.4&quot;
+    },
+    &quot;origin&quot;:&quot;140.207.165.210, 140.207.165.210&quot;,
+    &quot;url&quot;:&quot;https://httpbin.org/get?name=3243211111&amp;age=2&quot;
+}[0m
+[32m[INFO] 2019-12-09 17:17:10.440522 - 用例：get_case_02, 测试完毕。[0m
+<br/> -------------------------------Captured log call-------------------------------- <br/>INFO     requests_base:log_base.py:60 [32m[INFO] 2019-12-09 17:17:10.440522 - 【用例：get_case_02， 接口：&#x27;https://httpbin.org/get&#x27;】-- 测试结果如下：
+{
+    &quot;args&quot;:{
+        &quot;age&quot;:&quot;2&quot;,
+        &quot;name&quot;:&quot;3243211111&quot;
+    },
+    &quot;headers&quot;:{
+        &quot;Accept&quot;:&quot;*/*&quot;,
+        &quot;Accept-Encoding&quot;:&quot;gzip, deflate&quot;,
+        &quot;Host&quot;:&quot;httpbin.org&quot;,
+        &quot;User-Agent&quot;:&quot;python-requests/2.18.4&quot;
+    },
+    &quot;origin&quot;:&quot;140.207.165.210, 140.207.165.210&quot;,
+    &quot;url&quot;:&quot;https://httpbin.org/get?name=3243211111&amp;age=2&quot;
+}[0m
+INFO     test_get:log_base.py:60 [32m[INFO] 2019-12-09 17:17:10.440522 - 用例：get_case_02, 测试完毕。[0m<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_case/test_get.py::TestGet::test_get[get_case_02-get-/get-4-None-params9]</td>
+          <td class="col-duration">0.92</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[32m[INFO] 2019-12-09 17:17:11.357575 - 【用例：get_case_02， 接口：&#x27;https://httpbin.org/get&#x27;】-- 测试结果如下：
+{
+    &quot;args&quot;:{
+        &quot;age&quot;:&quot;2&quot;,
+        &quot;name&quot;:&quot;78979&quot;
+    },
+    &quot;headers&quot;:{
+        &quot;Accept&quot;:&quot;*/*&quot;,
+        &quot;Accept-Encoding&quot;:&quot;gzip, deflate&quot;,
+        &quot;Host&quot;:&quot;httpbin.org&quot;,
+        &quot;User-Agent&quot;:&quot;python-requests/2.18.4&quot;
+    },
+    &quot;origin&quot;:&quot;140.207.165.210, 140.207.165.210&quot;,
+    &quot;url&quot;:&quot;https://httpbin.org/get?name=78979&amp;age=2&quot;
+}[0m
+[32m[INFO] 2019-12-09 17:17:11.357575 - 用例：get_case_02, 测试完毕。[0m
+<br/> -------------------------------Captured log call-------------------------------- <br/>INFO     requests_base:log_base.py:60 [32m[INFO] 2019-12-09 17:17:11.357575 - 【用例：get_case_02， 接口：&#x27;https://httpbin.org/get&#x27;】-- 测试结果如下：
+{
+    &quot;args&quot;:{
+        &quot;age&quot;:&quot;2&quot;,
+        &quot;name&quot;:&quot;78979&quot;
+    },
+    &quot;headers&quot;:{
+        &quot;Accept&quot;:&quot;*/*&quot;,
+        &quot;Accept-Encoding&quot;:&quot;gzip, deflate&quot;,
+        &quot;Host&quot;:&quot;httpbin.org&quot;,
+        &quot;User-Agent&quot;:&quot;python-requests/2.18.4&quot;
+    },
+    &quot;origin&quot;:&quot;140.207.165.210, 140.207.165.210&quot;,
+    &quot;url&quot;:&quot;https://httpbin.org/get?name=78979&amp;age=2&quot;
+}[0m
+INFO     test_get:log_base.py:60 [32m[INFO] 2019-12-09 17:17:11.357575 - 用例：get_case_02, 测试完毕。[0m<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_case/test_get.py::TestGet::test_get[get_case_03-get-/get-3-None-None]</td>
+          <td class="col-duration">0.90</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[32m[INFO] 2019-12-09 17:17:12.255626 - 【用例：get_case_03， 接口：&#x27;https://httpbin.org/get&#x27;】-- 测试结果如下：
+{
+    &quot;args&quot;:{},
+    &quot;headers&quot;:{
+        &quot;Accept&quot;:&quot;*/*&quot;,
+        &quot;Accept-Encoding&quot;:&quot;gzip, deflate&quot;,
+        &quot;Host&quot;:&quot;httpbin.org&quot;,
+        &quot;User-Agent&quot;:&quot;python-requests/2.18.4&quot;
+    },
+    &quot;origin&quot;:&quot;140.207.165.210, 140.207.165.210&quot;,
+    &quot;url&quot;:&quot;https://httpbin.org/get&quot;
+}[0m
+[32m[INFO] 2019-12-09 17:17:12.256626 - 用例：get_case_03, 测试完毕。[0m
+<br/> -------------------------------Captured log call-------------------------------- <br/>INFO     requests_base:log_base.py:60 [32m[INFO] 2019-12-09 17:17:12.255626 - 【用例：get_case_03， 接口：&#x27;https://httpbin.org/get&#x27;】-- 测试结果如下：
+{
+    &quot;args&quot;:{},
+    &quot;headers&quot;:{
+        &quot;Accept&quot;:&quot;*/*&quot;,
+        &quot;Accept-Encoding&quot;:&quot;gzip, deflate&quot;,
+        &quot;Host&quot;:&quot;httpbin.org&quot;,
+        &quot;User-Agent&quot;:&quot;python-requests/2.18.4&quot;
+    },
+    &quot;origin&quot;:&quot;140.207.165.210, 140.207.165.210&quot;,
+    &quot;url&quot;:&quot;https://httpbin.org/get&quot;
+}[0m
+INFO     test_get:log_base.py:60 [32m[INFO] 2019-12-09 17:17:12.256626 - 用例：get_case_03, 测试完毕。[0m<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_case/test_get.py::TestGet::test_get_general</td>
+          <td class="col-duration">0.96</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[32m[INFO] 2019-12-09 17:17:13.213681 - 【用例：test_get_general， 接口：&#x27;https://httpbin.org/get&#x27;】-- 测试结果如下：
+{
+    &quot;args&quot;:{
+        &quot;a&quot;:&quot;0000000000000000000000111111111111&quot;,
+        &quot;b&quot;:&quot;=====================1111111111111==========&quot;
+    },
+    &quot;headers&quot;:{
+        &quot;Accept&quot;:&quot;*/*&quot;,
+        &quot;Accept-Encoding&quot;:&quot;gzip, deflate&quot;,
+        &quot;Host&quot;:&quot;httpbin.org&quot;,
+        &quot;User-Agent&quot;:&quot;python-requests/2.18.4&quot;
+    },
+    &quot;origin&quot;:&quot;140.207.165.210, 140.207.165.210&quot;,
+    &quot;url&quot;:&quot;https://httpbin.org/get?a=0000000000000000000000111111111111&amp;b=%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D1111111111111%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D&quot;
+}[0m
+[32m[INFO] 2019-12-09 17:17:13.214681 - 用例：test_get_general, 测试完毕。[0m
+[32m[INFO] 2019-12-09 17:17:13.216681 - yaml文件写入成功。[0m
+[32m[INFO] 2019-12-09 17:17:13.216681 - /get接口依赖数据已准备完毕。[0m
+<br/> -------------------------------Captured log call-------------------------------- <br/>INFO     requests_base:log_base.py:60 [32m[INFO] 2019-12-09 17:17:13.213681 - 【用例：test_get_general， 接口：&#x27;https://httpbin.org/get&#x27;】-- 测试结果如下：
+{
+    &quot;args&quot;:{
+        &quot;a&quot;:&quot;0000000000000000000000111111111111&quot;,
+        &quot;b&quot;:&quot;=====================1111111111111==========&quot;
+    },
+    &quot;headers&quot;:{
+        &quot;Accept&quot;:&quot;*/*&quot;,
+        &quot;Accept-Encoding&quot;:&quot;gzip, deflate&quot;,
+        &quot;Host&quot;:&quot;httpbin.org&quot;,
+        &quot;User-Agent&quot;:&quot;python-requests/2.18.4&quot;
+    },
+    &quot;origin&quot;:&quot;140.207.165.210, 140.207.165.210&quot;,
+    &quot;url&quot;:&quot;https://httpbin.org/get?a=0000000000000000000000111111111111&amp;b=%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D1111111111111%3D%3D%3D%3D%3D%3D%3D%3D%3D%3D&quot;
+}[0m
+INFO     test_get:log_base.py:60 [32m[INFO] 2019-12-09 17:17:13.214681 - 用例：test_get_general, 测试完毕。[0m
+INFO     config_base:log_base.py:60 [32m[INFO] 2019-12-09 17:17:13.216681 - yaml文件写入成功。[0m
+INFO     test_get:log_base.py:60 [32m[INFO] 2019-12-09 17:17:13.216681 - /get接口依赖数据已准备完毕。[0m<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_case/test_post.py::TestPost::test_post[post_case_01-post-/post-4-headers0-params0]</td>
+          <td class="col-duration">0.90</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[32m[INFO] 2019-12-09 17:17:14.119733 - 【用例：post_case_01， 接口：&#x27;https://httpbin.org/post&#x27;】-- 测试结果如下：
+{
+    &quot;args&quot;:{},
+    &quot;data&quot;:&quot;{\&quot;name\&quot;: \&quot;hang\&quot;, \&quot;age\&quot;: 2, \&quot;male\&quot;: \&quot;man\&quot;}&quot;,
+    &quot;files&quot;:{},
+    &quot;form&quot;:{},
+    &quot;headers&quot;:{
+        &quot;Accept&quot;:&quot;*/*&quot;,
+        &quot;Accept-Encoding&quot;:&quot;gzip, deflate&quot;,
+        &quot;Content-Length&quot;:&quot;41&quot;,
+        &quot;Content-Type&quot;:&quot;application/json&quot;,
+        &quot;Host&quot;:&quot;httpbin.org&quot;,
+        &quot;User-Agent&quot;:&quot;python-requests/2.18.4&quot;
+    },
+    &quot;json&quot;:{
+        &quot;age&quot;:2,
+        &quot;male&quot;:&quot;man&quot;,
+        &quot;name&quot;:&quot;hang&quot;
+    },
+    &quot;origin&quot;:&quot;140.207.165.210, 140.207.165.210&quot;,
+    &quot;url&quot;:&quot;https://httpbin.org/post&quot;
+}[0m
+[32m[INFO] 2019-12-09 17:17:14.120733 - 用例：post_case_01, 测试完毕。[0m
+<br/> -------------------------------Captured log call-------------------------------- <br/>INFO     requests_base:log_base.py:60 [32m[INFO] 2019-12-09 17:17:14.119733 - 【用例：post_case_01， 接口：&#x27;https://httpbin.org/post&#x27;】-- 测试结果如下：
+{
+    &quot;args&quot;:{},
+    &quot;data&quot;:&quot;{\&quot;name\&quot;: \&quot;hang\&quot;, \&quot;age\&quot;: 2, \&quot;male\&quot;: \&quot;man\&quot;}&quot;,
+    &quot;files&quot;:{},
+    &quot;form&quot;:{},
+    &quot;headers&quot;:{
+        &quot;Accept&quot;:&quot;*/*&quot;,
+        &quot;Accept-Encoding&quot;:&quot;gzip, deflate&quot;,
+        &quot;Content-Length&quot;:&quot;41&quot;,
+        &quot;Content-Type&quot;:&quot;application/json&quot;,
+        &quot;Host&quot;:&quot;httpbin.org&quot;,
+        &quot;User-Agent&quot;:&quot;python-requests/2.18.4&quot;
+    },
+    &quot;json&quot;:{
+        &quot;age&quot;:2,
+        &quot;male&quot;:&quot;man&quot;,
+        &quot;name&quot;:&quot;hang&quot;
+    },
+    &quot;origin&quot;:&quot;140.207.165.210, 140.207.165.210&quot;,
+    &quot;url&quot;:&quot;https://httpbin.org/post&quot;
+}[0m
+INFO     test_post:log_base.py:60 [32m[INFO] 2019-12-09 17:17:14.120733 - 用例：post_case_01, 测试完毕。[0m<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_case/test_post.py::TestPost::test_post[post_case_01-post-/post-4-headers1-params1]</td>
+          <td class="col-duration">0.91</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[32m[INFO] 2019-12-09 17:17:15.033785 - 【用例：post_case_01， 接口：&#x27;https://httpbin.org/post&#x27;】-- 测试结果如下：
+{
+    &quot;args&quot;:{},
+    &quot;data&quot;:&quot;{\&quot;name\&quot;: \&quot;hang+++++++++++++++++++++\&quot;, \&quot;age\&quot;: 21, \&quot;male\&quot;: \&quot;ma1n\&quot;}&quot;,
+    &quot;files&quot;:{},
+    &quot;form&quot;:{},
+    &quot;headers&quot;:{
+        &quot;Accept&quot;:&quot;*/*&quot;,
+        &quot;Accept-Encoding&quot;:&quot;gzip, deflate&quot;,
+        &quot;Content-Length&quot;:&quot;64&quot;,
+        &quot;Content-Type&quot;:&quot;application/json&quot;,
+        &quot;Host&quot;:&quot;httpbin.org&quot;,
+        &quot;User-Agent&quot;:&quot;python-requests/2.18.4&quot;
+    },
+    &quot;json&quot;:{
+        &quot;age&quot;:21,
+        &quot;male&quot;:&quot;ma1n&quot;,
+        &quot;name&quot;:&quot;hang+++++++++++++++++++++&quot;
+    },
+    &quot;origin&quot;:&quot;140.207.165.210, 140.207.165.210&quot;,
+    &quot;url&quot;:&quot;https://httpbin.org/post&quot;
+}[0m
+[32m[INFO] 2019-12-09 17:17:15.033785 - 用例：post_case_01, 测试完毕。[0m
+<br/> -------------------------------Captured log call-------------------------------- <br/>INFO     requests_base:log_base.py:60 [32m[INFO] 2019-12-09 17:17:15.033785 - 【用例：post_case_01， 接口：&#x27;https://httpbin.org/post&#x27;】-- 测试结果如下：
+{
+    &quot;args&quot;:{},
+    &quot;data&quot;:&quot;{\&quot;name\&quot;: \&quot;hang+++++++++++++++++++++\&quot;, \&quot;age\&quot;: 21, \&quot;male\&quot;: \&quot;ma1n\&quot;}&quot;,
+    &quot;files&quot;:{},
+    &quot;form&quot;:{},
+    &quot;headers&quot;:{
+        &quot;Accept&quot;:&quot;*/*&quot;,
+        &quot;Accept-Encoding&quot;:&quot;gzip, deflate&quot;,
+        &quot;Content-Length&quot;:&quot;64&quot;,
+        &quot;Content-Type&quot;:&quot;application/json&quot;,
+        &quot;Host&quot;:&quot;httpbin.org&quot;,
+        &quot;User-Agent&quot;:&quot;python-requests/2.18.4&quot;
+    },
+    &quot;json&quot;:{
+        &quot;age&quot;:21,
+        &quot;male&quot;:&quot;ma1n&quot;,
+        &quot;name&quot;:&quot;hang+++++++++++++++++++++&quot;
+    },
+    &quot;origin&quot;:&quot;140.207.165.210, 140.207.165.210&quot;,
+    &quot;url&quot;:&quot;https://httpbin.org/post&quot;
+}[0m
+INFO     test_post:log_base.py:60 [32m[INFO] 2019-12-09 17:17:15.033785 - 用例：post_case_01, 测试完毕。[0m<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_case/test_post.py::TestPost::test_post[post_case_01-post-/post-4-headers2-params2]</td>
+          <td class="col-duration">0.89</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[32m[INFO] 2019-12-09 17:17:15.925836 - 【用例：post_case_01， 接口：&#x27;https://httpbin.org/post&#x27;】-- 测试结果如下：
+{
+    &quot;args&quot;:{},
+    &quot;data&quot;:&quot;{\&quot;name\&quot;: \&quot;\\u2026\\u2026&amp;&amp;**************\\uff08\\uff08\\uff08\&quot;, \&quot;age\&quot;: 200, \&quot;male\&quot;: \&quot;PP\&quot;}&quot;,
+    &quot;files&quot;:{},
+    &quot;form&quot;:{},
+    &quot;headers&quot;:{
+        &quot;Accept&quot;:&quot;*/*&quot;,
+        &quot;Accept-Encoding&quot;:&quot;gzip, deflate&quot;,
+        &quot;Content-Length&quot;:&quot;84&quot;,
+        &quot;Content-Type&quot;:&quot;application/json&quot;,
+        &quot;Host&quot;:&quot;httpbin.org&quot;,
+        &quot;User-Agent&quot;:&quot;python-requests/2.18.4&quot;
+    },
+    &quot;json&quot;:{
+        &quot;age&quot;:200,
+        &quot;male&quot;:&quot;PP&quot;,
+        &quot;name&quot;:&quot;……&amp;&amp;**************（（（&quot;
+    },
+    &quot;origin&quot;:&quot;140.207.165.210, 140.207.165.210&quot;,
+    &quot;url&quot;:&quot;https://httpbin.org/post&quot;
+}[0m
+[32m[INFO] 2019-12-09 17:17:15.925836 - 用例：post_case_01, 测试完毕。[0m
+<br/> -------------------------------Captured log call-------------------------------- <br/>INFO     requests_base:log_base.py:60 [32m[INFO] 2019-12-09 17:17:15.925836 - 【用例：post_case_01， 接口：&#x27;https://httpbin.org/post&#x27;】-- 测试结果如下：
+{
+    &quot;args&quot;:{},
+    &quot;data&quot;:&quot;{\&quot;name\&quot;: \&quot;\\u2026\\u2026&amp;&amp;**************\\uff08\\uff08\\uff08\&quot;, \&quot;age\&quot;: 200, \&quot;male\&quot;: \&quot;PP\&quot;}&quot;,
+    &quot;files&quot;:{},
+    &quot;form&quot;:{},
+    &quot;headers&quot;:{
+        &quot;Accept&quot;:&quot;*/*&quot;,
+        &quot;Accept-Encoding&quot;:&quot;gzip, deflate&quot;,
+        &quot;Content-Length&quot;:&quot;84&quot;,
+        &quot;Content-Type&quot;:&quot;application/json&quot;,
+        &quot;Host&quot;:&quot;httpbin.org&quot;,
+        &quot;User-Agent&quot;:&quot;python-requests/2.18.4&quot;
+    },
+    &quot;json&quot;:{
+        &quot;age&quot;:200,
+        &quot;male&quot;:&quot;PP&quot;,
+        &quot;name&quot;:&quot;……&amp;&amp;**************（（（&quot;
+    },
+    &quot;origin&quot;:&quot;140.207.165.210, 140.207.165.210&quot;,
+    &quot;url&quot;:&quot;https://httpbin.org/post&quot;
+}[0m
+INFO     test_post:log_base.py:60 [32m[INFO] 2019-12-09 17:17:15.925836 - 用例：post_case_01, 测试完毕。[0m<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_case/test_post.py::TestPost::test_post[post_case_01-post-/post-4-headers3-params3]</td>
+          <td class="col-duration">0.90</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[32m[INFO] 2019-12-09 17:17:16.831888 - 【用例：post_case_01， 接口：&#x27;https://httpbin.org/post&#x27;】-- 测试结果如下：
+{
+    &quot;args&quot;:{},
+    &quot;data&quot;:&quot;{\&quot;name\&quot;: \&quot;sadasdsadsadsadsa\&quot;, \&quot;age\&quot;: 200, \&quot;male\&quot;: \&quot;PP\&quot;}&quot;,
+    &quot;files&quot;:{},
+    &quot;form&quot;:{},
+    &quot;headers&quot;:{
+        &quot;Accept&quot;:&quot;*/*&quot;,
+        &quot;Accept-Encoding&quot;:&quot;gzip, deflate&quot;,
+        &quot;Content-Length&quot;:&quot;55&quot;,
+        &quot;Content-Type&quot;:&quot;application/json&quot;,
+        &quot;Host&quot;:&quot;httpbin.org&quot;,
+        &quot;User-Agent&quot;:&quot;python-requests/2.18.4&quot;
+    },
+    &quot;json&quot;:{
+        &quot;age&quot;:200,
+        &quot;male&quot;:&quot;PP&quot;,
+        &quot;name&quot;:&quot;sadasdsadsadsadsa&quot;
+    },
+    &quot;origin&quot;:&quot;140.207.165.210, 140.207.165.210&quot;,
+    &quot;url&quot;:&quot;https://httpbin.org/post&quot;
+}[0m
+[32m[INFO] 2019-12-09 17:17:16.831888 - 用例：post_case_01, 测试完毕。[0m
+<br/> -------------------------------Captured log call-------------------------------- <br/>INFO     requests_base:log_base.py:60 [32m[INFO] 2019-12-09 17:17:16.831888 - 【用例：post_case_01， 接口：&#x27;https://httpbin.org/post&#x27;】-- 测试结果如下：
+{
+    &quot;args&quot;:{},
+    &quot;data&quot;:&quot;{\&quot;name\&quot;: \&quot;sadasdsadsadsadsa\&quot;, \&quot;age\&quot;: 200, \&quot;male\&quot;: \&quot;PP\&quot;}&quot;,
+    &quot;files&quot;:{},
+    &quot;form&quot;:{},
+    &quot;headers&quot;:{
+        &quot;Accept&quot;:&quot;*/*&quot;,
+        &quot;Accept-Encoding&quot;:&quot;gzip, deflate&quot;,
+        &quot;Content-Length&quot;:&quot;55&quot;,
+        &quot;Content-Type&quot;:&quot;application/json&quot;,
+        &quot;Host&quot;:&quot;httpbin.org&quot;,
+        &quot;User-Agent&quot;:&quot;python-requests/2.18.4&quot;
+    },
+    &quot;json&quot;:{
+        &quot;age&quot;:200,
+        &quot;male&quot;:&quot;PP&quot;,
+        &quot;name&quot;:&quot;sadasdsadsadsadsa&quot;
+    },
+    &quot;origin&quot;:&quot;140.207.165.210, 140.207.165.210&quot;,
+    &quot;url&quot;:&quot;https://httpbin.org/post&quot;
+}[0m
+INFO     test_post:log_base.py:60 [32m[INFO] 2019-12-09 17:17:16.831888 - 用例：post_case_01, 测试完毕。[0m<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_case/test_post.py::TestPost::test_post[post_case_01-post-/post-4-headers4-params4]</td>
+          <td class="col-duration">0.95</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[32m[INFO] 2019-12-09 17:17:17.778942 - 【用例：post_case_01， 接口：&#x27;https://httpbin.org/post&#x27;】-- 测试结果如下：
+{
+    &quot;args&quot;:{},
+    &quot;data&quot;:&quot;{\&quot;name\&quot;: \&quot;rrrrrrrrrrrrrrrr\&quot;, \&quot;age\&quot;: 200, \&quot;male\&quot;: \&quot;PP\&quot;}&quot;,
+    &quot;files&quot;:{},
+    &quot;form&quot;:{},
+    &quot;headers&quot;:{
+        &quot;Accept&quot;:&quot;*/*&quot;,
+        &quot;Accept-Encoding&quot;:&quot;gzip, deflate&quot;,
+        &quot;Content-Length&quot;:&quot;54&quot;,
+        &quot;Content-Type&quot;:&quot;application/json&quot;,
+        &quot;Host&quot;:&quot;httpbin.org&quot;,
+        &quot;User-Agent&quot;:&quot;python-requests/2.18.4&quot;
+    },
+    &quot;json&quot;:{
+        &quot;age&quot;:200,
+        &quot;male&quot;:&quot;PP&quot;,
+        &quot;name&quot;:&quot;rrrrrrrrrrrrrrrr&quot;
+    },
+    &quot;origin&quot;:&quot;140.207.165.210, 140.207.165.210&quot;,
+    &quot;url&quot;:&quot;https://httpbin.org/post&quot;
+}[0m
+[32m[INFO] 2019-12-09 17:17:17.778942 - 用例：post_case_01, 测试完毕。[0m
+<br/> -------------------------------Captured log call-------------------------------- <br/>INFO     requests_base:log_base.py:60 [32m[INFO] 2019-12-09 17:17:17.778942 - 【用例：post_case_01， 接口：&#x27;https://httpbin.org/post&#x27;】-- 测试结果如下：
+{
+    &quot;args&quot;:{},
+    &quot;data&quot;:&quot;{\&quot;name\&quot;: \&quot;rrrrrrrrrrrrrrrr\&quot;, \&quot;age\&quot;: 200, \&quot;male\&quot;: \&quot;PP\&quot;}&quot;,
+    &quot;files&quot;:{},
+    &quot;form&quot;:{},
+    &quot;headers&quot;:{
+        &quot;Accept&quot;:&quot;*/*&quot;,
+        &quot;Accept-Encoding&quot;:&quot;gzip, deflate&quot;,
+        &quot;Content-Length&quot;:&quot;54&quot;,
+        &quot;Content-Type&quot;:&quot;application/json&quot;,
+        &quot;Host&quot;:&quot;httpbin.org&quot;,
+        &quot;User-Agent&quot;:&quot;python-requests/2.18.4&quot;
+    },
+    &quot;json&quot;:{
+        &quot;age&quot;:200,
+        &quot;male&quot;:&quot;PP&quot;,
+        &quot;name&quot;:&quot;rrrrrrrrrrrrrrrr&quot;
+    },
+    &quot;origin&quot;:&quot;140.207.165.210, 140.207.165.210&quot;,
+    &quot;url&quot;:&quot;https://httpbin.org/post&quot;
+}[0m
+INFO     test_post:log_base.py:60 [32m[INFO] 2019-12-09 17:17:17.778942 - 用例：post_case_01, 测试完毕。[0m<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_case/test_post.py::TestPost::test_post[post_case_01-post-/post-4-headers5-params5]</td>
+          <td class="col-duration">0.96</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[32m[INFO] 2019-12-09 17:17:18.739997 - 【用例：post_case_01， 接口：&#x27;https://httpbin.org/post&#x27;】-- 测试结果如下：
+{
+    &quot;args&quot;:{},
+    &quot;data&quot;:&quot;{\&quot;name\&quot;: \&quot;============================================\&quot;, \&quot;age\&quot;: 2, \&quot;male\&quot;: \&quot;maaaaaaaaaaaaaaaaaaaaaaaaaaaan\&quot;}&quot;,
+    &quot;files&quot;:{},
+    &quot;form&quot;:{},
+    &quot;headers&quot;:{
+        &quot;Accept&quot;:&quot;*/*&quot;,
+        &quot;Accept-Encoding&quot;:&quot;gzip, deflate&quot;,
+        &quot;Content-Length&quot;:&quot;108&quot;,
+        &quot;Content-Type&quot;:&quot;application/json&quot;,
+        &quot;Host&quot;:&quot;httpbin.org&quot;,
+        &quot;User-Agent&quot;:&quot;python-requests/2.18.4&quot;
+    },
+    &quot;json&quot;:{
+        &quot;age&quot;:2,
+        &quot;male&quot;:&quot;maaaaaaaaaaaaaaaaaaaaaaaaaaaan&quot;,
+        &quot;name&quot;:&quot;============================================&quot;
+    },
+    &quot;origin&quot;:&quot;140.207.165.210, 140.207.165.210&quot;,
+    &quot;url&quot;:&quot;https://httpbin.org/post&quot;
+}[0m
+[32m[INFO] 2019-12-09 17:17:18.739997 - 用例：post_case_01, 测试完毕。[0m
+<br/> -------------------------------Captured log call-------------------------------- <br/>INFO     requests_base:log_base.py:60 [32m[INFO] 2019-12-09 17:17:18.739997 - 【用例：post_case_01， 接口：&#x27;https://httpbin.org/post&#x27;】-- 测试结果如下：
+{
+    &quot;args&quot;:{},
+    &quot;data&quot;:&quot;{\&quot;name\&quot;: \&quot;============================================\&quot;, \&quot;age\&quot;: 2, \&quot;male\&quot;: \&quot;maaaaaaaaaaaaaaaaaaaaaaaaaaaan\&quot;}&quot;,
+    &quot;files&quot;:{},
+    &quot;form&quot;:{},
+    &quot;headers&quot;:{
+        &quot;Accept&quot;:&quot;*/*&quot;,
+        &quot;Accept-Encoding&quot;:&quot;gzip, deflate&quot;,
+        &quot;Content-Length&quot;:&quot;108&quot;,
+        &quot;Content-Type&quot;:&quot;application/json&quot;,
+        &quot;Host&quot;:&quot;httpbin.org&quot;,
+        &quot;User-Agent&quot;:&quot;python-requests/2.18.4&quot;
+    },
+    &quot;json&quot;:{
+        &quot;age&quot;:2,
+        &quot;male&quot;:&quot;maaaaaaaaaaaaaaaaaaaaaaaaaaaan&quot;,
+        &quot;name&quot;:&quot;============================================&quot;
+    },
+    &quot;origin&quot;:&quot;140.207.165.210, 140.207.165.210&quot;,
+    &quot;url&quot;:&quot;https://httpbin.org/post&quot;
+}[0m
+INFO     test_post:log_base.py:60 [32m[INFO] 2019-12-09 17:17:18.739997 - 用例：post_case_01, 测试完毕。[0m<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_case/test_post.py::TestPost::test_post[post_case_02-post-/post-4-headers6-params6]</td>
+          <td class="col-duration">0.90</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[32m[INFO] 2019-12-09 17:17:19.637048 - 【用例：post_case_02， 接口：&#x27;https://httpbin.org/post&#x27;】-- 测试结果如下：
+{
+    &quot;args&quot;:{},
+    &quot;data&quot;:&quot;{\&quot;\\u5bfc\\u6f14/\\u6f14\\u5458/\\u65f6\\u95f4/...\&quot;: \&quot;\\u5bfc\\u6f14:\\u5f7c\\u5f97\\u00b7\\u6770\\u514b\\u900a Peter Jackson\\u00a0\\u00a0\\u00a0\\u4e3b\\u6f14:\\u4f0a\\u5229\\u4e9a\\u00b7\\u4f0d\\u5fb7 Elijah Wood / \\u897f\\u6069...\\u00a0/\\u00a0\\u7f8e\\u56fd \\u65b0\\u897f\\u5170\\u00a0/\\u00a0\\u5267\\u60c5 \\u52a8\\u4f5c \\u5947\\u5e7b \\u5192\\u9669\&quot;, \&quot;\\u5f71\\u8bc4\&quot;: \&quot;9.0 328420\\u4eba\\u8bc4\\u4ef7\&quot;, \&quot;\\u7535\\u5f71\\u540d\\u79f0\&quot;: \&quot;\\u6307\\u73af\\u738b2\\uff1a\\u53cc\\u5854\\u5947\\u5175\&quot;, \&quot;\\u7535\\u5f71\\u5c01\\u9762\&quot;: \&quot;https://img3.doubanio.com/view/photo/s_ratio_poster/public/p909265336.jpg\&quot;, \&quot;\\u7535\\u5f71\\u603b\\u7ed3\&quot;: \&quot;\\u627f\\u524d\\u542f\\u540e\\u7684\\u53f2\\u8bd7\\u7bc7\\u7ae0\&quot;, \&quot;\\u7535\\u5f71\\u8be6\\u60c5\\u9875\&quot;: \&quot;https://movie.douban.com/subject/1291572/\&quot;}&quot;,
+    &quot;files&quot;:{},
+    &quot;form&quot;:{},
+    &quot;headers&quot;:{
+        &quot;Accept&quot;:&quot;*/*&quot;,
+        &quot;Accept-Encoding&quot;:&quot;gzip, deflate&quot;,
+        &quot;Content-Length&quot;:&quot;717&quot;,
+        &quot;Content-Type&quot;:&quot;application/json&quot;,
+        &quot;Host&quot;:&quot;httpbin.org&quot;,
+        &quot;User-Agent&quot;:&quot;python-requests/2.18.4&quot;
+    },
+    &quot;json&quot;:{
+        &quot;导演/演员/时间/...&quot;:&quot;导演:彼得·杰克逊 Peter Jackson   主演:伊利亚·伍德 Elijah Wood / 西恩... / 美国 新西兰 / 剧情 动作 奇幻 冒险&quot;,
+        &quot;影评&quot;:&quot;9.0 328420人评价&quot;,
+        &quot;电影名称&quot;:&quot;指环王2：双塔奇兵&quot;,
+        &quot;电影封面&quot;:&quot;https://img3.doubanio.com/view/photo/s_ratio_poster/public/p909265336.jpg&quot;,
+        &quot;电影总结&quot;:&quot;承前启后的史诗篇章&quot;,
+        &quot;电影详情页&quot;:&quot;https://movie.douban.com/subject/1291572/&quot;
+    },
+    &quot;origin&quot;:&quot;140.207.165.210, 140.207.165.210&quot;,
+    &quot;url&quot;:&quot;https://httpbin.org/post&quot;
+}[0m
+[32m[INFO] 2019-12-09 17:17:19.637048 - 用例：post_case_02, 测试完毕。[0m
+<br/> -------------------------------Captured log call-------------------------------- <br/>INFO     requests_base:log_base.py:60 [32m[INFO] 2019-12-09 17:17:19.637048 - 【用例：post_case_02， 接口：&#x27;https://httpbin.org/post&#x27;】-- 测试结果如下：
+{
+    &quot;args&quot;:{},
+    &quot;data&quot;:&quot;{\&quot;\\u5bfc\\u6f14/\\u6f14\\u5458/\\u65f6\\u95f4/...\&quot;: \&quot;\\u5bfc\\u6f14:\\u5f7c\\u5f97\\u00b7\\u6770\\u514b\\u900a Peter Jackson\\u00a0\\u00a0\\u00a0\\u4e3b\\u6f14:\\u4f0a\\u5229\\u4e9a\\u00b7\\u4f0d\\u5fb7 Elijah Wood / \\u897f\\u6069...\\u00a0/\\u00a0\\u7f8e\\u56fd \\u65b0\\u897f\\u5170\\u00a0/\\u00a0\\u5267\\u60c5 \\u52a8\\u4f5c \\u5947\\u5e7b \\u5192\\u9669\&quot;, \&quot;\\u5f71\\u8bc4\&quot;: \&quot;9.0 328420\\u4eba\\u8bc4\\u4ef7\&quot;, \&quot;\\u7535\\u5f71\\u540d\\u79f0\&quot;: \&quot;\\u6307\\u73af\\u738b2\\uff1a\\u53cc\\u5854\\u5947\\u5175\&quot;, \&quot;\\u7535\\u5f71\\u5c01\\u9762\&quot;: \&quot;https://img3.doubanio.com/view/photo/s_ratio_poster/public/p909265336.jpg\&quot;, \&quot;\\u7535\\u5f71\\u603b\\u7ed3\&quot;: \&quot;\\u627f\\u524d\\u542f\\u540e\\u7684\\u53f2\\u8bd7\\u7bc7\\u7ae0\&quot;, \&quot;\\u7535\\u5f71\\u8be6\\u60c5\\u9875\&quot;: \&quot;https://movie.douban.com/subject/1291572/\&quot;}&quot;,
+    &quot;files&quot;:{},
+    &quot;form&quot;:{},
+    &quot;headers&quot;:{
+        &quot;Accept&quot;:&quot;*/*&quot;,
+        &quot;Accept-Encoding&quot;:&quot;gzip, deflate&quot;,
+        &quot;Content-Length&quot;:&quot;717&quot;,
+        &quot;Content-Type&quot;:&quot;application/json&quot;,
+        &quot;Host&quot;:&quot;httpbin.org&quot;,
+        &quot;User-Agent&quot;:&quot;python-requests/2.18.4&quot;
+    },
+    &quot;json&quot;:{
+        &quot;导演/演员/时间/...&quot;:&quot;导演:彼得·杰克逊 Peter Jackson   主演:伊利亚·伍德 Elijah Wood / 西恩... / 美国 新西兰 / 剧情 动作 奇幻 冒险&quot;,
+        &quot;影评&quot;:&quot;9.0 328420人评价&quot;,
+        &quot;电影名称&quot;:&quot;指环王2：双塔奇兵&quot;,
+        &quot;电影封面&quot;:&quot;https://img3.doubanio.com/view/photo/s_ratio_poster/public/p909265336.jpg&quot;,
+        &quot;电影总结&quot;:&quot;承前启后的史诗篇章&quot;,
+        &quot;电影详情页&quot;:&quot;https://movie.douban.com/subject/1291572/&quot;
+    },
+    &quot;origin&quot;:&quot;140.207.165.210, 140.207.165.210&quot;,
+    &quot;url&quot;:&quot;https://httpbin.org/post&quot;
+}[0m
+INFO     test_post:log_base.py:60 [32m[INFO] 2019-12-09 17:17:19.637048 - 用例：post_case_02, 测试完毕。[0m<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_case/test_post.py::TestPost::test_post_general_reply_get</td>
+          <td class="col-duration">0.96</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[32m[INFO] 2019-12-09 17:17:19.640048 - yaml文件读取成功。[0m
+[32m[INFO] 2019-12-09 17:17:20.602103 - 【用例：test_post_general_reply_get， 接口：&#x27;https://httpbin.org/post&#x27;】-- 测试结果如下：
+{
+    &quot;args&quot;:{},
+    &quot;data&quot;:&quot;{\&quot;a\&quot;: \&quot;0000000000000000000000111111111111\&quot;, \&quot;b\&quot;: \&quot;=====================1111111111111==========\&quot;}&quot;,
+    &quot;files&quot;:{},
+    &quot;form&quot;:{},
+    &quot;headers&quot;:{
+        &quot;Accept&quot;:&quot;*/*&quot;,
+        &quot;Accept-Encoding&quot;:&quot;gzip, deflate&quot;,
+        &quot;Content-Length&quot;:&quot;96&quot;,
+        &quot;Content-Type&quot;:&quot;application/json&quot;,
+        &quot;Host&quot;:&quot;httpbin.org&quot;,
+        &quot;User-Agent&quot;:&quot;python-requests/2.18.4&quot;
+    },
+    &quot;json&quot;:{
+        &quot;a&quot;:&quot;0000000000000000000000111111111111&quot;,
+        &quot;b&quot;:&quot;=====================1111111111111==========&quot;
+    },
+    &quot;origin&quot;:&quot;140.207.165.210, 140.207.165.210&quot;,
+    &quot;url&quot;:&quot;https://httpbin.org/post&quot;
+}[0m
+[32m[INFO] 2019-12-09 17:17:20.602103 - 用例：test_post_general_reply_get, 测试完毕。[0m
+<br/> -------------------------------Captured log call-------------------------------- <br/>INFO     config_base:log_base.py:60 [32m[INFO] 2019-12-09 17:17:19.640048 - yaml文件读取成功。[0m
+INFO     requests_base:log_base.py:60 [32m[INFO] 2019-12-09 17:17:20.602103 - 【用例：test_post_general_reply_get， 接口：&#x27;https://httpbin.org/post&#x27;】-- 测试结果如下：
+{
+    &quot;args&quot;:{},
+    &quot;data&quot;:&quot;{\&quot;a\&quot;: \&quot;0000000000000000000000111111111111\&quot;, \&quot;b\&quot;: \&quot;=====================1111111111111==========\&quot;}&quot;,
+    &quot;files&quot;:{},
+    &quot;form&quot;:{},
+    &quot;headers&quot;:{
+        &quot;Accept&quot;:&quot;*/*&quot;,
+        &quot;Accept-Encoding&quot;:&quot;gzip, deflate&quot;,
+        &quot;Content-Length&quot;:&quot;96&quot;,
+        &quot;Content-Type&quot;:&quot;application/json&quot;,
+        &quot;Host&quot;:&quot;httpbin.org&quot;,
+        &quot;User-Agent&quot;:&quot;python-requests/2.18.4&quot;
+    },
+    &quot;json&quot;:{
+        &quot;a&quot;:&quot;0000000000000000000000111111111111&quot;,
+        &quot;b&quot;:&quot;=====================1111111111111==========&quot;
+    },
+    &quot;origin&quot;:&quot;140.207.165.210, 140.207.165.210&quot;,
+    &quot;url&quot;:&quot;https://httpbin.org/post&quot;
+}[0m
+INFO     test_post:log_base.py:60 [32m[INFO] 2019-12-09 17:17:20.602103 - 用例：test_post_general_reply_get, 测试完毕。[0m<br/></div></td></tr></tbody></table></body></html>

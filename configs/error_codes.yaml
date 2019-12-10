@@ -1,0 +1,15 @@
+# 错误码及错误信息配置文件
+
+PARAM_ERROR:
+    code: 1000
+    massage: 参数不正确。
+
+---
+NOT_NONE:
+    code: 1001
+    massage: 参数不能为空。
+
+---
+NOT_10_BYTES:
+    code: 1002
+    massage: 参数长度不能超过10个字符。

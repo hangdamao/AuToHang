@@ -1,0 +1,109 @@
+# /get接口测试用例
+
+get_case_01:
+    run_mothed: get
+    api_path: /get
+    timeout: 4
+    headers:
+        a: qqqq
+        b: qwqw
+    params:
+        name: hang
+        age: 2
+
+---
+get_case_02:
+    run_mothed: get
+    api_path: /get
+    timeout: 4
+    headers:
+    params:
+        name: hang11111111111111111111111
+        age: 2
+
+---
+get_case_02:
+    run_mothed: get
+    api_path: /get
+    timeout: 4
+    headers:
+    params:
+        name: 123
+        age: 2
+
+---
+get_case_02:
+    run_mothed: get
+    api_path: /get
+    timeout: 4
+    headers:
+    params:
+        name: 234
+        age: 2
+
+---
+get_case_02:
+    run_mothed: get
+    api_path: /get
+    timeout: 4
+    headers:
+    params:
+        name: 345
+        age: 2
+
+---
+get_case_02:
+    run_mothed: get
+    api_path: /get
+    timeout: 4
+    headers:
+    params:
+        name: 456
+        age: 2
+
+---
+get_case_02:
+    run_mothed: get
+    api_path: /get
+    timeout: 4
+    headers:
+    params:
+        name: 678
+        age: 2
+
+---
+get_case_02:
+    run_mothed: get
+    api_path: /get
+    timeout: 4
+    headers:
+    params:
+        name: 5453
+        age: 2
+---
+get_case_02:
+    run_mothed: get
+    api_path: /get
+    timeout: 4
+    headers:
+    params:
+        name: 3243211111
+        age: 2
+
+---
+get_case_02:
+    run_mothed: get
+    api_path: /get
+    timeout: 4
+    headers:
+    params:
+        name: 78979
+        age: 2
+
+---
+get_case_03:
+    run_mothed: get
+    api_path: /get
+    timeout: 3
+    headers:
+    params:

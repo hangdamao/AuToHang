@@ -1,0 +1,87 @@
+# /post接口测试用例
+
+post_case_01:
+    run_mothed: post
+    api_path: /post
+    timeout: 4
+    headers:
+        Content-Type: application/json
+    params:
+        name: hang
+        age: 2
+        male: man
+
+---
+post_case_01:
+    run_mothed: post
+    api_path: /post
+    timeout: 4
+    headers:
+        Content-Type: application/json
+    params:
+        name: hang+++++++++++++++++++++
+        age: 21
+        male: ma1n
+
+---
+post_case_01:
+    run_mothed: post
+    api_path: /post
+    timeout: 4
+    headers:
+        Content-Type: application/json
+    params:
+        name: ……&&**************（（（
+        age: 200
+        male: PP
+
+---
+post_case_01:
+    run_mothed: post
+    api_path: /post
+    timeout: 4
+    headers:
+        Content-Type: application/json
+    params:
+        name: sadasdsadsadsadsa
+        age: 200
+        male: PP
+
+---
+post_case_01:
+    run_mothed: post
+    api_path: /post
+    timeout: 4
+    headers:
+        Content-Type: application/json
+    params:
+        name: rrrrrrrrrrrrrrrr
+        age: 200
+        male: PP
+
+---
+post_case_01:
+    run_mothed: post
+    api_path: /post
+    timeout: 4
+    headers:
+        Content-Type: application/json
+    params:
+        name: ============================================
+        age: 2
+        male: maaaaaaaaaaaaaaaaaaaaaaaaaaaan
+
+---
+post_case_02:
+    run_mothed: post
+    api_path: /post
+    timeout: 4
+    headers:
+        Content-Type: application/json
+    params:
+        导演/演员/时间/...: 导演:彼得·杰克逊 Peter Jackson   主演:伊利亚·伍德 Elijah Wood / 西恩... / 美国 新西兰 / 剧情 动作 奇幻 冒险
+        影评: 9.0 328420人评价
+        电影名称: 指环王2：双塔奇兵
+        电影封面: https://img3.doubanio.com/view/photo/s_ratio_poster/public/p909265336.jpg
+        电影总结: 承前启后的史诗篇章
+        电影详情页: https://movie.douban.com/subject/1291572/
