@@ -95,12 +95,12 @@ class SendMail(object):
 
 
 if __name__ =='__main__':
-    # 公司邮箱测试
-    with SendMail(smtp_server="mail.zcsmart.com",
-                 smtp_port=993,
-                 smtp_sender="cq154@zcsmart.com",
-                 smtp_senderpassword="ai102839.",
-                 smtp_receiver="306936010@qq.com",# ,"czk176@zcsmart.com"
+    #
+    with SendMail(smtp_server="",
+                 smtp_port=,
+                 smtp_sender="",
+                 smtp_senderpassword="",
+                 smtp_receiver=""
                  smtp_subject="hang的邮件！！",
                  smtp_body="<p>我的简书地址：https://www.jianshu.com/u/1f9e71a85238</p>") as s_m:
         s_m.send_mail()
